@@ -9,23 +9,50 @@ import { Loader2, SendHorizonal } from "lucide-react";
 import { useParams } from "next/navigation";
 import { useState } from "react";
 
+type User = {
+  user: {
+    uid: string | null;
+    photoURL: string | null;
+    email: string | null;
+    displayName: string | null;
+  };
+};
+
 const ChatFooter = () => {
-  const currentUser = useAuth();
+  const data = useAuth();
+  const currentUser: User = useAuth() as User;
   const { id: chatId } = useParams<{ id: string }>();
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [message, setMessage] = useState<string>("");
 
   const sendMessage = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    setIsLoading(true);
     try {
+      setIsLoading(true);
       await updateDoc(doc(db, "chats", chatId), {
         messages: arrayUnion({
+          id: Math.random().toString(36).substr(2, 9),
           // @ts-ignore
-          sender: currentUser?.user?.uid,
-          message,
+          senderId: currentUser?.user?.uid,
           timestamp: Timestamp.now(),
+          text: message,
         }),
+      });
+
+      await updateDoc(doc(db, "userChats", currentUser?.user?.uid!), {
+        [chatId + ".lastMessage"]: {
+          text: message,
+          timestamp: Timestamp.now(),
+        },
+      });
+
+      // @ts-ignore
+      await updateDoc(doc(db, "userChats", data?.uid), {
+        [chatId + ".lastMessage"]: {
+          text: message,
+          senderId: currentUser?.user?.uid,
+          timestamp: Timestamp.now(),
+        },
       });
     } catch (error) {
       console.error("Error sending message =>", error);
@@ -38,9 +65,6 @@ const ChatFooter = () => {
   return (
     <div className="chat__footer rounded-lg">
       <form className="form space-x-2" onSubmit={sendMessage}>
-        {/* <Button variant={"secondary"}>
-          <File size={24} />
-        </Button> */}
         <Input
           placeholder="Write message"
           className="message"

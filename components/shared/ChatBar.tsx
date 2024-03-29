@@ -1,5 +1,4 @@
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import Link from "next/link";
 import LogoutBtn from "./LogoutBtn";
 import useAuth from "@/app/hooks/useUser";
 import {
@@ -16,6 +15,8 @@ import { db } from "@/firebase";
 import { useEffect, useState } from "react";
 import { Loader2 } from "lucide-react";
 import { useRouter } from "next/navigation";
+import { Input } from "../ui/input";
+import Search from "./Search";
 
 interface User {
   user: {
@@ -29,19 +30,18 @@ interface User {
 const ChatBar = () => {
   const currentUser: User = useAuth() as User;
   const [users, setUsers] = useState<any>([]);
-  const [isLoading, setIsLoading] = useState<boolean>(false);
   const router = useRouter();
 
   useEffect(() => {
-    const getUsers = async () => {
-      const q = query(collection(db, "users"));
+    const getUsers = () => {
+      const unsub = onSnapshot(
+        doc(db, "userChats", currentUser?.user?.uid!),
+        (doc) => {
+          setUsers(doc.data());
+        }
+      );
 
-      const querySnapshot = await getDocs(q);
-
-      querySnapshot.forEach((doc) => {
-        console.log(doc.data());
-        setUsers((prev: any) => [...prev, doc.data()]);
-      });
+      return () => unsub();
     };
 
     currentUser?.user?.uid && getUsers();
@@ -58,9 +58,7 @@ const ChatBar = () => {
         collection(db, "chats", `chats/${combinedId}`)
       );
 
-      console.log("chatExits", !chatExits === false);
-
-      if (!chatExits) {
+      if (chatExits.docs.length !== 0) {
         await setDoc(doc(db, "chats", combinedId), {
           messages: [],
           timestamp: Timestamp.now(),
@@ -109,27 +107,35 @@ const ChatBar = () => {
       </div>
 
       <div>
-        <h4 className="chat__header">All</h4>
-        {isLoading && <Loader2 size={32} className="animate-spin" />}
-        {users
-          ?.filter((doc: any) => doc.uid !== currentUser?.user?.uid)
-          ?.map((user: any) => (
-            <div key={user.uid} className="chat__users">
-              <div
-                className="flex space-x-2 cursor-pointer text-white hover:bg-white p-1 hover:text-black rounded-b-lg rounded-tr-lg"
-                onClick={() => startChat(user)}
-              >
-                <Avatar className="text-black">
-                  <AvatarImage src={"Sunil Bista"} />
-                  <AvatarFallback>{user.displayName}</AvatarFallback>
-                </Avatar>
-                <div className="">
-                  <span>{user.displayName}</span>
-                  <p className="text-gray-500 text-xs">Active Now</p>
-                </div>
+        <h4 className="mt-4 mb-2">All</h4>
+        <Search />
+
+        {Object.entries(users)?.map((user: any, idx: any) => (
+          <div key={idx} className="chat__users">
+            <div
+              className="flex space-x-2 cursor-pointer text-white hover:bg-white p-1 hover:text-black rounded-b-lg rounded-tr-lg"
+              onClick={() => startChat(user[1]?.userInfo)}
+            >
+              <Avatar className="text-black">
+                <AvatarImage src={user[1]?.userInfo?.photoURL} />
+                <AvatarFallback>
+                  {user[1]?.userInfo?.displayName?.charAt(0)?.toUpperCase()}
+                </AvatarFallback>
+              </Avatar>
+              <div className="">
+                <span>{user[1]?.userInfo?.displayName}</span>
+                <p className="text-gray-500 text-xs">
+                  {user[1]?.lastMessage
+                    ? // @ts-ignore
+                      user[1]?.lastMessage?.senderId === currentUser?.user?.id!
+                      ? `You: ${user[1]?.lastMessage?.text}`
+                      : `${user[1]?.lastMessage?.text}`
+                    : "Say Hello"}
+                </p>
               </div>
             </div>
-          ))}
+          </div>
+        ))}
       </div>
     </div>
   );

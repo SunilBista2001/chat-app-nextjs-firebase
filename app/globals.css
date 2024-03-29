@@ -146,10 +146,11 @@
   background-color: #a37df8;
   padding: 10px;
   margin-left: auto;
-  max-width: fit-content;
+  /* max-width: fit-content; */
 }
 .message__chats > p {
   font-size: 13px;
+  /* max-width: fit-content; */
 }
 .sender__name {
   text-align: right;
